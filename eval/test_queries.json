@@ -1,0 +1,272 @@
+[
+  {
+    "id": "q001",
+    "topic": "tabular fraud detection transformers",
+    "ground_truth_paper_ids": ["2106.11959", "2012.06678"],
+    "ground_truth_claims": [
+      "TabTransformer applies transformer layers to categorical features while leaving numerical features unchanged.",
+      "SAINT uses inter-sample attention as well as self-attention over features."
+    ]
+  },
+  {
+    "id": "q002",
+    "topic": "large language model hallucination detection",
+    "ground_truth_paper_ids": ["2305.11747", "2309.01219"],
+    "ground_truth_claims": [
+      "SelfCheckGPT uses consistency across multiple sampled outputs to detect hallucinations without external knowledge.",
+      "FACTSCORE decomposes long-form outputs into atomic claims and verifies each independently."
+    ]
+  },
+  {
+    "id": "q003",
+    "topic": "retrieval augmented generation faithfulness evaluation",
+    "ground_truth_paper_ids": ["2309.15217", "2312.10997"],
+    "ground_truth_claims": [
+      "RAGAS evaluates faithfulness by checking whether claims in the answer can be inferred from the retrieved context.",
+      "ARES uses a trained judge model to assess faithfulness, context relevance, and answer relevance."
+    ]
+  },
+  {
+    "id": "q004",
+    "topic": "knowledge graph embedding link prediction",
+    "ground_truth_paper_ids": ["1412.6575", "1902.10197"],
+    "ground_truth_claims": [
+      "TransE models relationships as translations in embedding space: h + r ≈ t.",
+      "RotatE models each relation as a rotation in complex vector space."
+    ]
+  },
+  {
+    "id": "q005",
+    "topic": "contrastive learning self-supervised image representation",
+    "ground_truth_paper_ids": ["2002.05709", "2006.10029"],
+    "ground_truth_claims": [
+      "SimCLR requires a larger batch size and more training epochs than supervised methods to achieve comparable accuracy.",
+      "MoCo maintains a momentum-updated queue of negative samples to enable contrastive learning without large batches."
+    ]
+  },
+  {
+    "id": "q006",
+    "topic": "graph neural network node classification benchmark",
+    "ground_truth_paper_ids": ["1609.02907", "1710.10903"],
+    "ground_truth_claims": [
+      "GCN aggregates neighbour features by multiplying with the normalised adjacency matrix.",
+      "GAT assigns different attention weights to different neighbours during aggregation."
+    ]
+  },
+  {
+    "id": "q007",
+    "topic": "BERT fine-tuning medical NLP clinical notes",
+    "ground_truth_paper_ids": ["1904.03323", "2007.15779"],
+    "ground_truth_claims": [
+      "BioBERT is pre-trained on PubMed abstracts and PMC full-text articles.",
+      "ClinicalBERT is pre-trained on MIMIC-III clinical notes."
+    ]
+  },
+  {
+    "id": "q008",
+    "topic": "diffusion model image generation unconditional",
+    "ground_truth_paper_ids": ["2006.11239", "2102.09672"],
+    "ground_truth_claims": [
+      "DDPM uses a fixed Markov noising process during training and learns to reverse it.",
+      "Improved DDPM introduces a learned noise schedule that improves log-likelihood."
+    ]
+  },
+  {
+    "id": "q009",
+    "topic": "multi-agent reinforcement learning cooperative tasks",
+    "ground_truth_paper_ids": ["1706.02275", "2103.01955"],
+    "ground_truth_claims": [
+      "MADDPG uses centralised training with decentralised execution for cooperative multi-agent tasks.",
+      "MAPPO is a multi-agent adaptation of PPO that uses a shared value function during training."
+    ]
+  },
+  {
+    "id": "q010",
+    "topic": "object detection transformer DETR end to end",
+    "ground_truth_paper_ids": ["2005.12872", "2010.04159"],
+    "ground_truth_claims": [
+      "DETR removes the need for non-maximum suppression by treating object detection as a set prediction problem.",
+      "Deformable DETR speeds up convergence by attending only to a small set of key sampling points per feature map."
+    ]
+  },
+  {
+    "id": "q011",
+    "topic": "neural architecture search efficient automated",
+    "ground_truth_paper_ids": ["1802.03268", "1905.11946"],
+    "ground_truth_claims": [
+      "DARTS uses continuous relaxation of the architecture search space to enable gradient-based optimisation.",
+      "EfficientNet scales width, depth, and resolution jointly using a compound coefficient."
+    ]
+  },
+  {
+    "id": "q012",
+    "topic": "federated learning privacy preserving distributed",
+    "ground_truth_paper_ids": ["1602.05629", "1710.06963"],
+    "ground_truth_claims": [
+      "FedAvg averages client model weights on a central server after local SGD training.",
+      "Differential privacy in federated learning clips gradients and adds Gaussian noise before aggregation."
+    ]
+  },
+  {
+    "id": "q013",
+    "topic": "text summarisation abstractive transformer sequence to sequence",
+    "ground_truth_paper_ids": ["1910.13461", "2004.14974"],
+    "ground_truth_claims": [
+      "BART pre-trains by corrupting text with several noise functions and learning to reconstruct the original.",
+      "PEGASUS pre-trains by masking and generating entire sentences that are important to document meaning."
+    ]
+  },
+  {
+    "id": "q014",
+    "topic": "anomaly detection time series deep learning",
+    "ground_truth_paper_ids": ["2110.02642", "2103.12257"],
+    "ground_truth_claims": [
+      "TranAD uses a transformer-based adversarial training scheme for multivariate time-series anomaly detection.",
+      "Anomaly Transformer introduces an anomaly attention mechanism that computes association discrepancy."
+    ]
+  },
+  {
+    "id": "q015",
+    "topic": "instruction tuning large language model RLHF alignment",
+    "ground_truth_paper_ids": ["2203.02155", "2112.00114"],
+    "ground_truth_claims": [
+      "InstructGPT uses reinforcement learning from human feedback to align GPT-3 with user intentions.",
+      "FLAN fine-tunes language models on a collection of NLP datasets described via natural language instructions."
+    ]
+  },
+  {
+    "id": "q016",
+    "topic": "vision language model zero shot image classification CLIP",
+    "ground_truth_paper_ids": ["2103.00020"],
+    "ground_truth_claims": [
+      "CLIP is trained on 400 million image-text pairs using a contrastive objective.",
+      "CLIP performs zero-shot classification by comparing image embeddings to text prompt embeddings."
+    ]
+  },
+  {
+    "id": "q017",
+    "topic": "point cloud 3D object detection autonomous driving",
+    "ground_truth_paper_ids": ["1812.05784", "2006.11275"],
+    "ground_truth_claims": [
+      "PointPillars encodes point cloud data into vertical pillars for fast 3D detection.",
+      "CenterPoint detects objects as points at their centre and regresses 3D bounding box attributes."
+    ]
+  },
+  {
+    "id": "q018",
+    "topic": "code generation LLM program synthesis",
+    "ground_truth_paper_ids": ["2107.03374", "2203.07814"],
+    "ground_truth_claims": [
+      "Codex is fine-tuned on publicly available code from GitHub and evaluated on HumanEval.",
+      "AlphaCode formulates competitive programming as a sampling and filtering problem."
+    ]
+  },
+  {
+    "id": "q019",
+    "topic": "speech recognition end to end deep learning CTC",
+    "ground_truth_paper_ids": ["1508.01211", "2006.11477"],
+    "ground_truth_claims": [
+      "DeepSpeech 2 uses a recurrent neural network trained end-to-end with CTC loss.",
+      "wav2vec 2.0 uses a contrastive task over quantised speech representations during pre-training."
+    ]
+  },
+  {
+    "id": "q020",
+    "topic": "causal inference treatment effect estimation observational data",
+    "ground_truth_paper_ids": ["2001.09887", "1706.03461"],
+    "ground_truth_claims": [
+      "Double machine learning uses cross-fitting and Neyman orthogonality to estimate treatment effects.",
+      "CEVAE uses a variational autoencoder to model the latent confounders in observational data."
+    ]
+  },
+  {
+    "id": "q021",
+    "topic": "semantic segmentation medical image UNet",
+    "ground_truth_paper_ids": ["1505.04597", "2102.04306"],
+    "ground_truth_claims": [
+      "U-Net uses skip connections between encoder and decoder to recover spatial information lost during downsampling.",
+      "Swin-UNet replaces convolutional blocks with Swin Transformer blocks for hierarchical feature extraction."
+    ]
+  },
+  {
+    "id": "q022",
+    "topic": "graph transformer heterogeneous node classification",
+    "ground_truth_paper_ids": ["2003.01332", "2009.03509"],
+    "ground_truth_claims": [
+      "HAN uses hierarchical attention: node-level attention within meta-paths and semantic-level attention across meta-paths.",
+      "HGT uses heterogeneous mutual attention and message passing parameterised by node and edge types."
+    ]
+  },
+  {
+    "id": "q023",
+    "topic": "reward model preference learning RLHF human feedback",
+    "ground_truth_paper_ids": ["2204.05862", "2305.18290"],
+    "ground_truth_claims": [
+      "Constitutional AI uses a set of principles to generate critiques and revisions during training.",
+      "DPO directly optimises the language model as a reward model using a binary cross-entropy loss on preference pairs."
+    ]
+  },
+  {
+    "id": "q024",
+    "topic": "tabular data deep learning XGBoost comparison",
+    "ground_truth_paper_ids": ["2106.11959", "2207.08815"],
+    "ground_truth_claims": [
+      "On structured tabular benchmarks, tree-based models like XGBoost still outperform most deep learning models.",
+      "Why do tree-based models still outperform deep learning on tabular data attributes this to the irregular shape of tabular target functions."
+    ]
+  },
+  {
+    "id": "q025",
+    "topic": "named entity recognition sequence labelling BERT",
+    "ground_truth_paper_ids": ["1810.04805", "1911.04474"],
+    "ground_truth_claims": [
+      "BERT achieves state-of-the-art NER by fine-tuning the pre-trained model with a linear classification layer.",
+      "SpanBERT pre-trains by masking contiguous spans rather than individual tokens."
+    ]
+  },
+  {
+    "id": "q026",
+    "topic": "molecule property prediction graph neural network drug discovery",
+    "ground_truth_paper_ids": ["1603.00856", "2012.09648"],
+    "ground_truth_claims": [
+      "MPNN uses message passing over molecular graphs to predict quantum chemical properties.",
+      "DimeNet uses directional message passing that incorporates bond angles."
+    ]
+  },
+  {
+    "id": "q027",
+    "topic": "long context transformer memory efficient attention",
+    "ground_truth_paper_ids": ["2004.05150", "2205.14135"],
+    "ground_truth_claims": [
+      "Longformer combines local windowed attention with task-motivated global attention for long document processing.",
+      "FlashAttention computes exact attention with O(N) memory using tiling and recomputation."
+    ]
+  },
+  {
+    "id": "q028",
+    "topic": "recommendation system collaborative filtering matrix factorisation",
+    "ground_truth_paper_ids": ["0811.2600", "1708.05031"],
+    "ground_truth_claims": [
+      "Matrix factorisation decomposes the user-item interaction matrix into low-rank user and item latent factor matrices.",
+      "Neural collaborative filtering replaces the inner product with a multi-layer perceptron to capture nonlinear interactions."
+    ]
+  },
+  {
+    "id": "q029",
+    "topic": "zero shot generalisation large language model chain of thought reasoning",
+    "ground_truth_paper_ids": ["2201.11903", "2205.01068"],
+    "ground_truth_claims": [
+      "Chain-of-thought prompting enables large language models to solve multi-step reasoning tasks by generating intermediate steps.",
+      "Zero-shot chain-of-thought uses the phrase Let us think step by step to elicit reasoning without few-shot examples."
+    ]
+  },
+  {
+    "id": "q030",
+    "topic": "neural machine translation attention mechanism transformer",
+    "ground_truth_paper_ids": ["1409.0473", "1706.03762"],
+    "ground_truth_claims": [
+      "Bahdanau attention allows the decoder to attend to different parts of the encoder output at each decoding step.",
+      "The Transformer replaces recurrence entirely with multi-head self-attention and achieves state-of-the-art translation."
+    ]
+  }
+]
