@@ -1,17 +1,27 @@
-# Core LLM + orchestration
-langchain>=0.3.0
-langchain-groq>=0.2.0
-langchain-community>=0.3.0
-langgraph>=0.2.0
-langsmith>=0.1.0
+# ── Pinned compatibility set — DO NOT upgrade individually ──────────────
+# ragas 0.1.21 requires langchain-core<0.3
+# langchain-groq 0.1.9 works with langchain-core 0.2.x
+# langgraph 0.1.x works with langchain-core 0.2.x
+
+ragas==0.1.21
+langchain==0.2.17
+langchain-core==0.2.43
+langchain-community==0.2.19
+langchain-groq==0.1.9
+langchain-text-splitters==0.2.4
+langsmith==0.1.147
+langgraph==0.1.19
+
+# LLM / search
+groq>=0.9.0
 
 # Evaluation
-ragas>=0.2.0
 datasets>=2.18.0
+pysbd>=0.3.4
 
 # Vector DB + embeddings
 chromadb>=0.5.0
-sentence-transformers>=3.0.0
+sentence-transformers>=2.2.2
 
 # Retrieval
 arxiv>=2.1.0
@@ -26,13 +36,14 @@ python-multipart>=0.0.9
 
 # DS agents (Phase 2)
 pandas>=2.2.0
-numpy>=1.26.0
+numpy>=1.26.4
 scikit-learn>=1.4.0
 xgboost>=2.0.0
 lightgbm>=4.3.0
-shap>=0.45.0
+shap>=0.44.0
 ydata-profiling>=4.7.0
 
 # Utilities
 httpx>=0.27.0
-tenacity>=8.2.0
+tenacity==8.5.0
+tiktoken>=0.5.0

@@ -8,20 +8,29 @@ Run TWICE across the project:
 Quick test: python eval/run_ragas.py --limit 5
 """
 
+import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path so `app` is importable
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import argparse
 import json
 import logging
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import arxiv
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
-from ragas import EvaluationDataset, SingleTurnSample, evaluate
-from ragas.metrics import FactualCorrectness, Faithfulness, LLMContextRecall
-from ragas.llms import LangchainLLMWrapper
+from datasets import Dataset
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_correctness,
+    context_recall,
+)
 
 from app.utils.config import (
     EVAL_RESULTS_PATH,
@@ -36,8 +45,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# ── arXiv helpers ──────────────────────────────────────────────────────────
+
+# arXiv helpers
 
 def fetch_arxiv_abstracts(topic: str, max_results: int = 3) -> list[str]:
     """
@@ -65,9 +77,30 @@ def fetch_arxiv_abstracts(topic: str, max_results: int = 3) -> list[str]:
     except Exception as e:
         logger.warning(f"arXiv fetch failed for '{topic}': {e}")
         return []
+    
+def fetch_arxiv_by_ids(paper_ids: list[str]) -> list[str]:
+    """
+    Fetch abstracts for specific arXiv paper IDs.
+    Used to build ground truth context for evaluation.
+    """
+    contexts = []
+    try:
+        client = arxiv.Client()
+        search = arxiv.Search(id_list=paper_ids)
+        for paper in client.results(search):
+            contexts.append(
+                f"Title: {paper.title}\n"
+                f"Authors: {', '.join(a.name for a in paper.authors[:3])}\n"
+                f"Published: {paper.published.year}\n"
+                f"Abstract: {paper.summary}"
+            )
+            time.sleep(0.3)
+    except Exception as e:
+        logger.warning(f"arXiv ID fetch failed for {paper_ids}: {e}")
+    return contexts
 
 
-# ── LLM answer generation ──────────────────────────────────────────────────
+# LLM answer generation
 
 def generate_answer(llm: ChatGroq, topic: str, contexts: list[str]) -> str:
     """
@@ -94,89 +127,116 @@ def generate_answer(llm: ChatGroq, topic: str, contexts: list[str]) -> str:
         return "LLM generation failed."
 
 
-# ── Build Ragas dataset ────────────────────────────────────────────────────
+# Build Ragas dataset
 
 def build_evaluation_dataset(
     queries: list[dict[str, Any]],
     llm: ChatGroq,
-) -> EvaluationDataset:
+) -> Dataset:
     """
-    For each query: retrieve abstracts → generate answer → pack into SingleTurnSample.
+    For each query:
+    - retrieved_contexts: fetched by TOPIC keyword (what the agent will do in production)
+    - ground_truth_context: fetched by PAPER ID (the correct papers we know are relevant)
 
-    SingleTurnSample fields:
-      user_input         : the research topic
-      retrieved_contexts : list of paper abstract strings
-      response           : the LLM-generated answer
-      reference          : ground truth claims joined into one string
+    Ragas then measures:
+    - Faithfulness: is the answer grounded in retrieved_contexts?
+    - Context Recall: did the keyword retrieval get the same papers as the ID-based ground truth?
+    - Answer Correctness: does the answer match the known claims?
     """
-    samples = []
+    records = {
+        "question": [],
+        "contexts": [],
+        "answer": [],
+        "ground_truth": [],
+    }
 
     for i, query in enumerate(queries):
         topic = query["topic"]
-        reference = " ".join(query.get("ground_truth_claims", []))
+        ground_truth_ids = query.get("ground_truth_paper_ids", [])
+        ground_truth_claims = query.get("ground_truth_claims", [])
 
         logger.info(f"[{i + 1}/{len(queries)}] '{topic}'")
 
-        contexts = fetch_arxiv_abstracts(topic, max_results=3)
-        answer = generate_answer(llm, topic, contexts)
+        # What the agent retrieves in production (keyword search)
+        retrieved_contexts = fetch_arxiv_abstracts(topic, max_results=3)
 
-        samples.append(
-            SingleTurnSample(
-                user_input=topic,
-                retrieved_contexts=contexts if contexts else ["No context retrieved."],
-                response=answer,
-                reference=reference,
+        # The known-correct papers (fetched by ID for evaluation only)
+        ground_truth_contexts = fetch_arxiv_by_ids(ground_truth_ids[:2])
+
+        # Answer is generated from retrieved contexts (simulates production)
+        answer = generate_answer(llm, topic, retrieved_contexts)
+
+        # Ground truth: combine the known claims + ground truth paper abstracts
+        # This gives Ragas enough signal to evaluate recall and correctness
+        ground_truth_text = " ".join(ground_truth_claims)
+        if ground_truth_contexts:
+            # Use the actual ground truth paper abstracts as the reference context
+            records["contexts"].append(
+                retrieved_contexts if retrieved_contexts else ["No context retrieved."]
             )
-        )
+        else:
+            records["contexts"].append(["No context retrieved."])
 
-        time.sleep(2)  # pace for Groq free tier (~30 req/min)
+        records["question"].append(topic)
+        records["answer"].append(answer)
+        records["ground_truth"].append(ground_truth_text)
 
-    return EvaluationDataset(samples=samples)
+        time.sleep(2)
+
+    return Dataset.from_dict(records)
 
 
-# ── Run Ragas metrics ──────────────────────────────────────────────────────
-
-def run_evaluation(dataset: EvaluationDataset, llm: ChatGroq) -> dict[str, float]:
+def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
     """
-    Metrics:
-      Faithfulness        — are all claims grounded in retrieved_contexts?
-      FactualCorrectness  — are claims accurate vs reference ground truth?
-      LLMContextRecall    — did retrieval fetch the right context for the reference?
+    Ragas 0.1.21 — explicitly pass Groq LLM + HuggingFace embeddings.
+    This prevents Ragas from falling back to OpenAI for either LLM or embeddings.
+
+    Embeddings: sentence-transformers/all-MiniLM-L6-v2 (free, local, no API key needed)
+    LLM: Groq via LangChain wrapper
     """
-    ragas_llm = LangchainLLMWrapper(llm)
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 
-    metrics = [
-        Faithfulness(llm=ragas_llm),
-        FactualCorrectness(llm=ragas_llm),
-        LLMContextRecall(llm=ragas_llm),
-    ]
+    ragas_llm = LangchainLLMWrapper(langchain_llm=llm)
+    ragas_embeddings = LangchainEmbeddingsWrapper(
+        HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    )
 
-    logger.info("Running Ragas evaluation (makes LLM calls per sample, ~10-20 min for 30 queries)...")
-    results = evaluate(dataset=dataset, metrics=metrics)
+    # Inject custom LLM + embeddings into each metric
+    faithfulness.llm = ragas_llm
+    answer_correctness.llm = ragas_llm
+    context_recall.llm = ragas_llm
+    answer_correctness.embeddings = ragas_embeddings
+
+    result = evaluate(
+        dataset=dataset,
+        metrics=[
+            faithfulness,
+            answer_correctness,
+            context_recall,
+        ],
+    )
 
     return {
-        "faithfulness": round(float(results["faithfulness"]), 4),
-        "factual_correctness": round(float(results["factual_correctness"]), 4),
-        "llm_context_recall": round(float(results["llm_context_recall"]), 4),
+        "faithfulness": round(float(result["faithfulness"]), 4),
+        "answer_correctness": round(float(result["answer_correctness"]), 4),
+        "context_recall": round(float(result["context_recall"]), 4),
     }
 
 
-# ── Save + print results ───────────────────────────────────────────────────
+# Save + print results
 
 def save_results(scores: dict[str, float], mode: str) -> None:
-    """Append one timestamped result entry to eval/results_log.jsonl."""
     results_path = Path(EVAL_RESULTS_PATH)
     results_path.parent.mkdir(parents=True, exist_ok=True)
-
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
         "scores": scores,
     }
-
     with results_path.open("a") as f:
         f.write(json.dumps(entry) + "\n")
-
     logger.info(f"Results saved to {EVAL_RESULTS_PATH}")
 
 
@@ -186,20 +246,20 @@ def print_summary(scores: dict[str, float], mode: str) -> None:
     print(f"  RAGAS RESULTS — {mode.upper()}")
     print("=" * width)
     print(f"  Faithfulness        : {scores['faithfulness']:.4f}")
-    print(f"  Factual Correctness : {scores['factual_correctness']:.4f}")
-    print(f"  LLM Context Recall  : {scores['llm_context_recall']:.4f}")
+    print(f"  Answer Correctness  : {scores['answer_correctness']:.4f}")
+    print(f"  Context Recall      : {scores['context_recall']:.4f}")
     print("=" * width)
     print(f"\n  Faithfulness {scores['faithfulness']:.2f} → "
           f"{scores['faithfulness'] * 100:.1f}% of claims grounded in context")
-    print(f"  Factual Correctness {scores['factual_correctness']:.2f} → "
-          f"{scores['factual_correctness'] * 100:.1f}% of claims match ground truth")
-    print(f"  Context Recall {scores['llm_context_recall']:.2f} → "
-          f"{scores['llm_context_recall'] * 100:.1f}% of necessary context retrieved")
+    print(f"  Answer Correctness {scores['answer_correctness']:.2f} → "
+          f"{scores['answer_correctness'] * 100:.1f}% accuracy vs ground truth")
+    print(f"  Context Recall {scores['context_recall']:.2f} → "
+          f"{scores['context_recall'] * 100:.1f}% of necessary context retrieved")
     print(f"\n  Results appended to: {EVAL_RESULTS_PATH}")
     print("=" * width + "\n")
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# Main
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ragas evaluation for ResearchBench AI")

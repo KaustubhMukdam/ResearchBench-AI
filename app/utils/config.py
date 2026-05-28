@@ -26,7 +26,7 @@ LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "researchbench-ai")
 
 # LLM
 GROQ_API_KEY: str = _require("GROQ_API_KEY")
-GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # Search
 TAVILY_API_KEY: str = _require("TAVILY_API_KEY")

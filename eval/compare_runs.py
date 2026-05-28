@@ -6,9 +6,12 @@ Usage:
     python eval/compare_runs.py
 """
 
-import json
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import json
 from app.utils.config import EVAL_RESULTS_PATH
 
 
@@ -57,7 +60,7 @@ def main() -> None:
         last = runs[-1]["scores"]
 
         print("\nDelta (last run vs first run):")
-        for metric in ["faithfulness", "factual_correctness", "llm_context_recall"]:
+        for metric in ["faithfulness", "answer_correctness", "context_recall"]:
             delta = last.get(metric, 0.0) - first.get(metric, 0.0)
             arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "─")
             print(f"  {metric:<26}: {arrow} {delta:+.4f}")
