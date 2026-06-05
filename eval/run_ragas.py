@@ -185,6 +185,33 @@ def build_evaluation_dataset(
 
     return Dataset.from_dict(records)
 
+# Add this class above run_evaluation() in run_ragas.py
+import time
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage
+
+class RateLimitedGroq:
+    """
+    Thin wrapper that enforces a minimum delay between Groq calls.
+    Prevents Ragas from firing parallel requests that exhaust TPM/TPD limits.
+    """
+    def __init__(self, llm: ChatGroq, min_interval: float = 3.0):
+        self._llm = llm
+        self._min_interval = min_interval
+        self._last_call = 0.0
+
+    def invoke(self, input, **kwargs):
+        elapsed = time.time() - self._last_call
+        if elapsed < self._min_interval:
+            time.sleep(self._min_interval - elapsed)
+        result = self._llm.invoke(input, **kwargs)
+        self._last_call = time.time()
+        return result
+
+    # Ragas calls these attributes internally — proxy them through
+    def __getattr__(self, name):
+        return getattr(self._llm, name)
+
 
 def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
     """
@@ -194,16 +221,21 @@ def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
     Embeddings: sentence-transformers/all-MiniLM-L6-v2 (free, local, no API key needed)
     LLM: Groq via LangChain wrapper
     """
+    import os
+    os.environ["RAGAS_MAX_WORKERS"] = "1"
+
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from langchain_community.embeddings import HuggingFaceEmbeddings
 
-    ragas_llm = LangchainLLMWrapper(langchain_llm=llm)
+    # 3 second gap between every Ragas LLM call
+    throttled_llm = RateLimitedGroq(llm, min_interval=3.0)
+
+    ragas_llm = LangchainLLMWrapper(langchain_llm=throttled_llm)
     ragas_embeddings = LangchainEmbeddingsWrapper(
         HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     )
 
-    # Inject custom LLM + embeddings into each metric
     faithfulness.llm = ragas_llm
     answer_correctness.llm = ragas_llm
     context_recall.llm = ragas_llm
@@ -211,21 +243,40 @@ def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
 
     result = evaluate(
         dataset=dataset,
-        metrics=[
-            faithfulness,
-            answer_correctness,
-            context_recall,
-        ],
+        metrics=[faithfulness, answer_correctness, context_recall],
     )
 
-    return {
+    scores = {
         "faithfulness": round(float(result["faithfulness"]), 4),
         "answer_correctness": round(float(result["answer_correctness"]), 4),
         "context_recall": round(float(result["context_recall"]), 4),
     }
+    return scores
 
 
 # Save + print results
+import math
+
+def _is_valid_scores(scores: dict[str, float]) -> bool:
+    return all(not math.isnan(v) for v in scores.values())
+
+def save_results(scores: dict[str, float], mode: str) -> None:
+    if not _is_valid_scores(scores):
+        logger.error(
+            "Scores contain NaN — run had too many 429 errors. "
+            "NOT saving to results_log.jsonl. Wait for token limit to reset and retry."
+        )
+        return
+    results_path = Path(EVAL_RESULTS_PATH)
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "mode": mode,
+        "scores": scores,
+    }
+    with results_path.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+    logger.info(f"Results saved to {EVAL_RESULTS_PATH}")
 
 def save_results(scores: dict[str, float], mode: str) -> None:
     results_path = Path(EVAL_RESULTS_PATH)
