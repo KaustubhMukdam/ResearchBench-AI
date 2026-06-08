@@ -50,7 +50,7 @@ def main() -> None:
             f"{i + 1:<4} {ts:<22} {mode:<16} "
             f"{s.get('faithfulness', 0.0):<12.4f} "
             f"{s.get('answer_correctness', 0.0):<12.4f} "
-            f"{s.get('llm_context_recall', 0.0):<12.4f}"
+            f"{s.get('context_recall', 0.0):<12.4f}"
         )
 
     print("=" * len(header))
@@ -62,18 +62,18 @@ def main() -> None:
         print("\nDelta (last run vs first run):")
         for metric in ["faithfulness", "answer_correctness", "context_recall"]:
             delta = last.get(metric, 0.0) - first.get(metric, 0.0)
-            arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "─")
+            arrow = "+" if delta > 0 else ("-" if delta < 0 else "=")
             print(f"  {metric:<26}: {arrow} {delta:+.4f}")
 
         faith_delta = last.get("faithfulness", 0.0) - first.get("faithfulness", 0.0)
         recall_delta = last.get("context_recall", 0.0) - first.get("context_recall", 0.0)
         if recall_delta > 0 or faith_delta != 0:
             print(
-                f"\n📌 Resume metric:\n"
+                f"\n[RESUME METRIC]:\n"
                 f'   "Multi-agent RAG pipeline improved Context Recall from '
-                f"{first.get('context_recall', 0.0):.2f} → {last.get('context_recall', 0.0):.2f} "
+                f"{first.get('context_recall', 0.0):.2f} -> {last.get('context_recall', 0.0):.2f} "
                 f"and Answer Correctness from "
-                f"{first.get('answer_correctness', 0.0):.2f} → {last.get('answer_correctness', 0.0):.2f} "
+                f"{first.get('answer_correctness', 0.0):.2f} -> {last.get('answer_correctness', 0.0):.2f} "
                 f"on 5 arXiv test queries, measured via Ragas."
                 f'"'
             )

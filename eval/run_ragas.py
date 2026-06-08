@@ -9,10 +9,18 @@ Quick test: python eval/run_ragas.py --limit 5
 """
 
 import sys
+import os
+import math
+import warnings
 from pathlib import Path
 
-# Ensure project root is on sys.path so `app` is importable
+# ── Force Ragas to use 1 worker BEFORE any ragas import ──────────────────────
+os.environ["RAGAS_MAX_WORKERS"] = "1"
+
+# ── Path fix — must be before any app imports ────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import argparse
 import json
@@ -44,9 +52,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # arXiv helpers
@@ -185,53 +190,50 @@ def build_evaluation_dataset(
 
     return Dataset.from_dict(records)
 
-# Add this class above run_evaluation() in run_ragas.py
-import time
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+# ── Rate-limited Groq wrapper ────────────────────────────────────────────────
 
 class RateLimitedGroq:
     """
-    Thin wrapper that enforces a minimum delay between Groq calls.
-    Prevents Ragas from firing parallel requests that exhaust TPM/TPD limits.
+    Wraps ChatGroq and enforces a minimum gap between calls.
+    Intercepts both .invoke() (sync) and .__call__() so Ragas
+    internal calls are also throttled.
     """
-    def __init__(self, llm: ChatGroq, min_interval: float = 3.0):
+
+    def __init__(self, llm: ChatGroq, min_interval: float = 4.0):
         self._llm = llm
         self._min_interval = min_interval
-        self._last_call = 0.0
+        self._last_call: float = 0.0
 
-    def invoke(self, input, **kwargs):
-        elapsed = time.time() - self._last_call
+    def _wait(self) -> None:
+        elapsed = time.monotonic() - self._last_call
         if elapsed < self._min_interval:
             time.sleep(self._min_interval - elapsed)
-        result = self._llm.invoke(input, **kwargs)
-        self._last_call = time.time()
-        return result
+        self._last_call = time.monotonic()
 
-    # Ragas calls these attributes internally — proxy them through
+    def invoke(self, input, **kwargs):
+        self._wait()
+        return self._llm.invoke(input, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        self._wait()
+        return self._llm(*args, **kwargs)
+
     def __getattr__(self, name):
         return getattr(self._llm, name)
 
 
 def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
     """
-    Ragas 0.1.21 — explicitly pass Groq LLM + HuggingFace embeddings.
-    This prevents Ragas from falling back to OpenAI for either LLM or embeddings.
-
-    Embeddings: sentence-transformers/all-MiniLM-L6-v2 (free, local, no API key needed)
-    LLM: Groq via LangChain wrapper
+    Evaluate with Ragas 0.1.21 using:
+    - Groq LLM (throttled to avoid 429s)
+    - Local HuggingFace embeddings (no OpenAI needed)
     """
-    import os
-    os.environ["RAGAS_MAX_WORKERS"] = "1"
-
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from langchain_community.embeddings import HuggingFaceEmbeddings
 
-    # 3 second gap between every Ragas LLM call
-    throttled_llm = RateLimitedGroq(llm, min_interval=3.0)
-
-    ragas_llm = LangchainLLMWrapper(langchain_llm=throttled_llm)
+    throttled = RateLimitedGroq(llm, min_interval=4.0)
+    ragas_llm = LangchainLLMWrapper(langchain_llm=throttled)
     ragas_embeddings = LangchainEmbeddingsWrapper(
         HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     )
@@ -241,30 +243,30 @@ def run_evaluation(dataset: Dataset, llm: ChatGroq) -> dict[str, float]:
     context_recall.llm = ragas_llm
     answer_correctness.embeddings = ragas_embeddings
 
+    logger.info("Running Ragas evaluation (sequential, 4s between calls)...")
     result = evaluate(
         dataset=dataset,
         metrics=[faithfulness, answer_correctness, context_recall],
     )
 
-    scores = {
+    return {
         "faithfulness": round(float(result["faithfulness"]), 4),
         "answer_correctness": round(float(result["answer_correctness"]), 4),
         "context_recall": round(float(result["context_recall"]), 4),
     }
-    return scores
 
 
-# Save + print results
-import math
+# ── Save + print ──────────────────────────────────────────────────────────────
 
-def _is_valid_scores(scores: dict[str, float]) -> bool:
+def _is_valid(scores: dict[str, float]) -> bool:
     return all(not math.isnan(v) for v in scores.values())
 
+
 def save_results(scores: dict[str, float], mode: str) -> None:
-    if not _is_valid_scores(scores):
+    if not _is_valid(scores):
         logger.error(
-            "Scores contain NaN — run had too many 429 errors. "
-            "NOT saving to results_log.jsonl. Wait for token limit to reset and retry."
+            "NaN scores detected — Groq token limit likely exhausted. "
+            "NOT writing to results_log.jsonl. Wait for daily reset and retry."
         )
         return
     results_path = Path(EVAL_RESULTS_PATH)
@@ -278,36 +280,28 @@ def save_results(scores: dict[str, float], mode: str) -> None:
         f.write(json.dumps(entry) + "\n")
     logger.info(f"Results saved to {EVAL_RESULTS_PATH}")
 
-def save_results(scores: dict[str, float], mode: str) -> None:
-    results_path = Path(EVAL_RESULTS_PATH)
-    results_path.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mode": mode,
-        "scores": scores,
-    }
-    with results_path.open("a") as f:
-        f.write(json.dumps(entry) + "\n")
-    logger.info(f"Results saved to {EVAL_RESULTS_PATH}")
-
 
 def print_summary(scores: dict[str, float], mode: str) -> None:
-    width = 55
-    print("\n" + "=" * width)
-    print(f"  RAGAS RESULTS — {mode.upper()}")
-    print("=" * width)
+    if not _is_valid(scores):
+        print("\n[WARN] NaN scores - Groq daily token limit exhausted.")
+        print("   Wait until ~12:30 PM IST for reset, then re-run.\n")
+        return
+    w = 55
+    print("\n" + "=" * w)
+    print(f"  RAGAS RESULTS - {mode.upper()}")
+    print("=" * w)
     print(f"  Faithfulness        : {scores['faithfulness']:.4f}")
     print(f"  Answer Correctness  : {scores['answer_correctness']:.4f}")
     print(f"  Context Recall      : {scores['context_recall']:.4f}")
-    print("=" * width)
-    print(f"\n  Faithfulness {scores['faithfulness']:.2f} → "
+    print("=" * w)
+    print(f"\n  Faithfulness {scores['faithfulness']:.2f} -> "
           f"{scores['faithfulness'] * 100:.1f}% of claims grounded in context")
-    print(f"  Answer Correctness {scores['answer_correctness']:.2f} → "
+    print(f"  Answer Correctness {scores['answer_correctness']:.2f} -> "
           f"{scores['answer_correctness'] * 100:.1f}% accuracy vs ground truth")
-    print(f"  Context Recall {scores['context_recall']:.2f} → "
+    print(f"  Context Recall {scores['context_recall']:.2f} -> "
           f"{scores['context_recall'] * 100:.1f}% of necessary context retrieved")
     print(f"\n  Results appended to: {EVAL_RESULTS_PATH}")
-    print("=" * width + "\n")
+    print("=" * w + "\n")
 
 
 # Main
