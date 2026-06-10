@@ -109,7 +109,7 @@ def run_citation_verifier(state: ResearchState) -> ResearchState:
     for claim in claims_to_verify:
         result = _verify_claim(claim)
         verified.append(result)
-        status = "✓" if result.supported else "✗"
+        status = "[OK]" if result.supported else "[NO]"
         logger.debug(f"  {status} [{result.confidence:.2f}] {claim[:70]}")
 
     supported = sum(1 for v in verified if v.supported)

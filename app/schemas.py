@@ -64,3 +64,30 @@ class ResearchState(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+class ResearchResponse(BaseModel):
+    """API response for POST /research — serializable only."""
+    topic: str = ""
+    gap_summary: str = ""
+    papers: list[PaperMetadata] = Field(default_factory=list)
+    extractions: list[PaperExtraction] = Field(default_factory=list)
+    verified_claims: list[VerifiedClaim] = Field(default_factory=list)
+    benchmark_table: list[dict] = Field(default_factory=list)
+    error: Optional[str] = None
+
+
+class FeatureSuggestionOut(BaseModel):
+    """Lightweight feature suggestion for API response."""
+    name: str
+    description: str
+
+
+class DSResponse(BaseModel):
+    """API response for POST /analyze-dataset — serializable only."""
+    eda: Optional[dict] = None
+    feature_suggestions: list[FeatureSuggestionOut] = Field(default_factory=list)
+    model_results: Optional[dict] = None
+    validation: Optional[dict] = None
+    shap: Optional[dict] = None
+    error: Optional[str] = None

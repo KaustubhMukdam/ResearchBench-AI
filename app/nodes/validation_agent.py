@@ -90,6 +90,25 @@ def _check_high_cardinality(df: pd.DataFrame, target: str) -> list[ValidationIss
     return issues
 
 
+def _check_duplicates(df: pd.DataFrame) -> list[ValidationIssue]:
+    """Detect duplicate rows that can inflate CV scores."""
+    issues = []
+    n_dup = df.duplicated().sum()
+    dup_rate = n_dup / len(df)
+    if dup_rate > 0.05:
+        issues.append(
+            ValidationIssue(
+                issue_type="duplicate_rows",
+                severity="medium",
+                description=(
+                    f"{n_dup} duplicate rows detected ({dup_rate:.1%} of dataset). "
+                    f"Duplicates can leak across CV folds and inflate model scores artificially."
+                ),
+            )
+        )
+    return issues
+
+
 def run_validation(state: DSState) -> DSState:
     """
     LangGraph node: Validation
@@ -109,6 +128,7 @@ def run_validation(state: DSState) -> DSState:
     all_issues.extend(_check_leakage(df, state.target_column))
     all_issues.extend(_check_missing_leakage(df, state.target_column))
     all_issues.extend(_check_high_cardinality(df, state.target_column))
+    all_issues.extend(_check_duplicates(df))
 
     if state.model_results and state.model_results.cv_std > 0:
         cv_std = state.model_results.cv_std

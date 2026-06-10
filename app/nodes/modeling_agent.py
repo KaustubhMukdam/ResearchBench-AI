@@ -108,6 +108,17 @@ def run_modeling(state: DSState) -> DSState:
         state.error = f"Modeling failed: {e}"
         return state
 
+    # Deduplicate before modeling — duplicate rows leak across CV folds
+    # and cause artificially inflated scores (e.g. CV F1 = 1.000).
+    n_before = len(df)
+    df = df.drop_duplicates().reset_index(drop=True)
+    n_dropped = n_before - len(df)
+    if n_dropped > 0:
+        logger.warning(
+            f"[Modeling] dropped {n_dropped} duplicate rows ({n_dropped / n_before:.1%}) "
+            f"before training — {len(df)} rows remaining."
+        )
+
     try:
         X, y, feature_names, target_encoder = _preprocess(df, state.target_column, state.problem_type)
     except Exception as e:
@@ -116,6 +127,7 @@ def run_modeling(state: DSState) -> DSState:
         return state
 
     logger.info(f"[Modeling] X shape: {X.shape}, features: {len(feature_names)}")
+
 
     models = []
     try:
