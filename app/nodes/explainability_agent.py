@@ -9,7 +9,6 @@ import warnings
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 
@@ -35,7 +34,9 @@ def _preprocess(df: pd.DataFrame, target: str):
         if X[col].isna().any():
             X[col] = SimpleImputer(strategy="most_frequent").fit_transform(X[[col]]).ravel()
 
-    return X.values, y, X.columns.tolist()
+    X_arr = X.values.astype(np.float64)
+    y_arr = y.values if isinstance(y, pd.Series) else np.asarray(y)
+    return X_arr, y_arr, X.columns.tolist()
 
 
 def run_explainability(state: DSState) -> DSState:
@@ -92,24 +93,55 @@ def run_explainability(state: DSState) -> DSState:
 
         model.fit(X, y)
 
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X)
+        # Use TreeExplainer for SHAP values to avoid compatibility issues
+        try:
+            explainer = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(X)
 
-        if isinstance(shap_values, list):
-            shap_values = shap_values[1]  # binary classification, class 1
+            # Normalise shap_values to a 2-D array (n_samples, n_features):
+            #   - Old shap (<0.41): list of arrays per class  → take index 1 (positive class)
+            #   - New shap (>=0.41): 3-D ndarray (n_samples, n_features, n_classes) → slice last dim
+            #   - Regression / already 2-D: use as-is
+            shap_arr = np.array(shap_values)
+            if shap_arr.ndim == 3:
+                # (n_samples, n_features, n_classes) — take positive-class slice
+                shap_arr = shap_arr[:, :, 1]
+            elif shap_arr.ndim == 1 and isinstance(shap_values, list):
+                # list of 2-D arrays — take index 1 (binary positive class)
+                shap_arr = np.array(shap_values[1])
 
-        mean_abs_shap = np.abs(shap_values).mean(axis=0)
-        sorted_idx = np.argsort(mean_abs_shap)[::-1]
+            shap_values = shap_arr  # guaranteed 2-D: (n_samples, n_features)
+        except Exception as shap_err_inner:
+            logger.warning(f"[Explainability] TreeExplainer failed ({shap_err_inner}), using model feature_importances_")
+            shap_values = None
 
-        importances = []
-        for rank, idx in enumerate(sorted_idx[:20]):
-            importances.append(
-                FeatureImportance(
-                    feature=feature_names[idx],
-                    importance=round(float(mean_abs_shap[idx]), 4),
-                    rank=rank + 1,
+        if shap_values is not None:
+            mean_abs_shap = np.abs(shap_values).mean(axis=0)
+            sorted_idx = np.argsort(mean_abs_shap)[::-1]
+
+            importances = []
+            for rank, idx in enumerate(sorted_idx[:20]):
+                importances.append(
+                    FeatureImportance(
+                        feature=feature_names[idx],
+                        importance=round(float(mean_abs_shap[idx]), 4),
+                        rank=rank + 1,
+                    )
                 )
-            )
+        else:
+            # Fallback to model's feature_importances_
+            fi = model.feature_importances_
+            sorted_idx = np.argsort(fi)[::-1]
+
+            importances = []
+            for rank, idx in enumerate(sorted_idx[:20]):
+                importances.append(
+                    FeatureImportance(
+                        feature=feature_names[idx],
+                        importance=round(float(fi[idx]), 4),
+                        rank=rank + 1,
+                    )
+                )
 
         state.shap_summary = SHAPSummary(
             top_features=importances,
@@ -118,7 +150,7 @@ def run_explainability(state: DSState) -> DSState:
         logger.info(f"[Explainability] top feature: {importances[0].feature} ({importances[0].importance:.4f})")
 
     except Exception as e:
-        logger.error(f"[Explainability] SHAP computation failed: {e}")
+        logger.error(f"[Explainability] explainability computation failed: {e}")
         state.shap_summary = SHAPSummary()
 
     return state

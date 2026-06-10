@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime
 
-logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 import pandas as pd
 import numpy as np
@@ -44,9 +44,13 @@ def run_all():
             tf = result.shap_summary.top_features[0]
             top_feat = f"{tf.feature} ({tf.importance:.4f})"
 
-        print(f"Best model  : {best_name}")
-        print(f"CV mean F1  : {cv_mean:.4f}")
-        print(f"CV std      : {result.model_results.cv_std if result.model_results else 0:.4f}")
+        if result.model_results:
+            print(f"Best model  : {best_name}")
+            print(f"CV mean F1  : {cv_mean:.4f}")
+            print(f"CV std      : {result.model_results.cv_std:.4f}")
+            for m in result.model_results.results:
+                roc = f"  roc_auc={m.roc_auc}" if m.roc_auc else ""
+                print(f"  {m.model_name}: acc={m.accuracy:.3f}, f1={m.f1_score:.3f}{roc}")
         print(f"Validation  : {n_issues} issues")
         print(f"Top feature : {top_feat}")
         print(f"Error       : {result.error}")

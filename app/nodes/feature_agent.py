@@ -7,6 +7,7 @@ feature transformations, encodings, and derived features.
 from __future__ import annotations
 import json
 import logging
+import re
 
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
@@ -89,6 +90,8 @@ def run_feature_engineering(state: DSState) -> DSState:
             if raw.startswith("json"):
                 raw = raw[4:]
             raw = raw.strip()
+
+        raw = re.sub(r"\\(?![/\"\\bfnrtu])", "", raw)
 
         data = json.loads(raw)
         if isinstance(data, list):
