@@ -20,9 +20,24 @@ logger = logging.getLogger(__name__)
 def _get_collection() -> chromadb.Collection:
     """Get or create the persistent ChromaDB collection."""
     client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
-    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=EMBEDDING_MODEL
-    )
+
+    # Try the full SentenceTransformer model first.
+    # Falls back to ChromaDB's built-in default embeddings if the model
+    # isn't cached locally yet (avoids HuggingFace download failures at runtime).
+    try:
+        emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=EMBEDDING_MODEL
+        )
+        logger.debug(f"Using SentenceTransformer embedding: {EMBEDDING_MODEL}")
+    except Exception as e:
+        logger.warning(
+            f"SentenceTransformer load failed ({e}). "
+            f"Falling back to ChromaDB default embeddings — "
+            f"run 'python -c \"from sentence_transformers import SentenceTransformer; "
+            f"SentenceTransformer(\\'{EMBEDDING_MODEL}\\')\"' to pre-cache the model."
+        )
+        emb_fn = embedding_functions.DefaultEmbeddingFunction()
+
     return client.get_or_create_collection(
         name=CHROMA_COLLECTION_NAME,
         embedding_function=emb_fn,

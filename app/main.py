@@ -1,5 +1,10 @@
 """FastAPI app entry point."""
+import os
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+os.environ.setdefault("LANGSMITH_TRACING", "true")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
