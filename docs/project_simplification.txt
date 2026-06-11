@@ -1,0 +1,9 @@
+Imagine you're a student starting a new Kaggle competition on fraud detection. You have two problems at the same time:
+
+Problem A: "What methods have other researchers already tried for this kind of problem? What worked, and what didn't?" — Right now you'd spend hours reading papers, and half the time the AI summaries you get are wrong (hallucinated facts).
+
+Problem B: "I have this CSV dataset. What should I try? How do I do EDA, which models should I test, and why is my model performing poorly?" — Right now you write this from scratch every time.
+
+ResearchBench AI solves both in one place. You type a topic ("tabular fraud detection with transformers") → it fetches real arXiv papers, extracts what methods and benchmarks each paper used, and verifies every claim against the source before showing it to you. Then you upload your CSV → it automatically runs EDA, suggests features, trains XGBoost/LightGBM/RF, checks for data leakage, and shows you SHAP feature importance charts.
+
+The part that makes it different from a tutorial project: it measures its own accuracy (Ragas Faithfulness score) and logs every agent step (LangSmith) so you can prove it reduced hallucinations by a concrete percentage.

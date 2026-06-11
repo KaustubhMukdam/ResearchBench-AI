@@ -12,13 +12,18 @@ from app.ds_graph import run_ds_pipeline
 data = load_breast_cancer(as_frame=True)
 df = data.frame
 df["target"] = data.target  # already present in as_frame, but ensure name
-csv_path = "/tmp/breast_cancer.csv"
+
+import tempfile, os
+tmp_fd, csv_path = tempfile.mkstemp(suffix=".csv")
+os.close(tmp_fd)
 df.to_csv(csv_path, index=False)
 print(f"Test dataset: {csv_path} ({len(df)} rows, {len(df.columns)} columns)")
 print(f"Target distribution:\n{df['target'].value_counts().to_dict()}")
 
 # ── Run pipeline ────────────────────────────────────────────────────────
 result = run_ds_pipeline(file_path=csv_path, target_column="target")
+os.unlink(csv_path)
+
 
 # ── Results ─────────────────────────────────────────────────────────────
 print(f"\n{'='*60}")

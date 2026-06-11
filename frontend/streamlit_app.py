@@ -91,6 +91,15 @@ with tab_research:
                     label = "[SUPPORTED]" if c.get("supported") else "[NOT SUPPORTED]"
                     st.markdown(f"{label} {c['claim']} (confidence: {c.get('confidence', 0):.2f})")
 
+        tu = data.get("token_usage")
+        if tu and tu.get("total_tokens", 0) > 0:
+            st.caption(
+                f"Token usage: {tu['total_tokens']} total "
+                f"({tu['prompt_tokens']} prompt + {tu['completion_tokens']} completion)  ·  "
+                f"${tu['estimated_cost_usd']:.6f}  ·  "
+                f"{tu['daily_limit_pct']}% of daily free tier"
+            )
+
     elif not topic.strip():
         st.warning("Enter a topic first.")
 
@@ -181,3 +190,12 @@ with tab_ds:
                 st.pyplot(fig)
         elif shap_data is not None and not shap_data.get("top_features"):
             st.info("No feature importance data available.")
+
+        tu = data.get("token_usage")
+        if tu and tu.get("total_tokens", 0) > 0:
+            st.caption(
+                f"Token usage: {tu['total_tokens']} total "
+                f"({tu['prompt_tokens']} prompt + {tu['completion_tokens']} completion)  ·  "
+                f"${tu['estimated_cost_usd']:.6f}  ·  "
+                f"{tu['daily_limit_pct']}% of daily free tier"
+            )

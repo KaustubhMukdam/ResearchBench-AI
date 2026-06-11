@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.ds_graph import run_ds_pipeline
 from app.schemas import DSResponse, FeatureSuggestionOut
+from app.cost_tracker import TokenCounter
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,12 @@ def run_ds(csv_bytes: bytes, filename: str, target_column: str) -> DSResponse:
         tmp_path = f.name
 
     try:
-        state = run_ds_pipeline(file_path=tmp_path, target_column=target_column)
+        counter = TokenCounter()
+        state = run_ds_pipeline(
+            file_path=tmp_path,
+            target_column=target_column,
+            callbacks=[counter],
+        )
 
         suggestions = []
         if state.feature_suggestions and state.feature_suggestions.suggestions:
@@ -80,6 +86,7 @@ def run_ds(csv_bytes: bytes, filename: str, target_column: str) -> DSResponse:
             validation=_validation_to_dict(state.validation_report),
             shap=_shap_to_dict(state.shap_summary),
             error=state.error,
+            token_usage=counter.summary(),
         )
     finally:
         try:

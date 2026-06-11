@@ -14,6 +14,8 @@ DATASETS = [
     {"name": "Titanic", "path": "data/titanic.csv", "target": "Survived"},
     {"name": "Telco Churn", "path": "data/telco_churn.csv", "target": "Churn"},
     {"name": "Pima Diabetes", "path": "data/pima_diabetes.csv", "target": "Outcome"},
+    {"name": "Breast Cancer", "path": "data/breast_cancer.csv", "target": "target"},
+    {"name": "Digits (Binary)", "path": "data/digits_binary.csv", "target": "target"},
 ]
 
 

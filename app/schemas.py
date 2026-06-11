@@ -8,6 +8,9 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+
+
+
 class PaperMetadata(BaseModel):
     """Structured metadata for a single paper."""
     arxiv_id: str = ""
@@ -75,6 +78,7 @@ class ResearchResponse(BaseModel):
     verified_claims: list[VerifiedClaim] = Field(default_factory=list)
     benchmark_table: list[dict] = Field(default_factory=list)
     error: Optional[str] = None
+    token_usage: Optional[dict] = None
 
 
 class FeatureSuggestionOut(BaseModel):
@@ -91,3 +95,4 @@ class DSResponse(BaseModel):
     validation: Optional[dict] = None
     shap: Optional[dict] = None
     error: Optional[str] = None
+    token_usage: Optional[dict] = None

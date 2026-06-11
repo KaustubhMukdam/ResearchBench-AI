@@ -6,8 +6,10 @@ Wires all Phase 2 nodes into a linear pipeline:
 
 from __future__ import annotations
 import logging
+from typing import Optional
 
 from langgraph.graph import StateGraph, END
+from langchain_core.callbacks import BaseCallbackHandler
 
 from app.models.ds_models import DSState
 from app.nodes.eda_agent import run_eda
@@ -42,7 +44,11 @@ def build_ds_graph() -> StateGraph:
     return graph.compile()
 
 
-def run_ds_pipeline(file_path: str, target_column: str) -> DSState:
+def run_ds_pipeline(
+    file_path: str,
+    target_column: str,
+    callbacks: Optional[list[BaseCallbackHandler]] = None,
+) -> DSState:
     """
     Run the full data science pipeline for a CSV dataset.
     Returns the final DSState with all reports populated.
@@ -51,7 +57,10 @@ def run_ds_pipeline(file_path: str, target_column: str) -> DSState:
     graph = build_ds_graph()
 
     initial_state = DSState(file_path=file_path, target_column=target_column)
-    final_state = graph.invoke(initial_state)
+    config = {}
+    if callbacks:
+        config["callbacks"] = callbacks
+    final_state = graph.invoke(initial_state, config)
 
     eda = final_state.get("eda_report")
     results = final_state.get("model_results")

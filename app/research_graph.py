@@ -6,8 +6,10 @@ Wires all Phase 1 nodes into a linear pipeline:
 
 from __future__ import annotations
 import logging
+from typing import Optional
 
 from langgraph.graph import StateGraph, END
+from langchain_core.callbacks import BaseCallbackHandler
 
 from app.schemas import ResearchState
 from app.nodes.paper_retrieval import run_paper_retrieval
@@ -39,7 +41,10 @@ def build_research_graph() -> StateGraph:
     return graph.compile()
 
 
-def run_research_pipeline(topic: str) -> ResearchState:
+def run_research_pipeline(
+    topic: str,
+    callbacks: Optional[list[BaseCallbackHandler]] = None,
+) -> ResearchState:
     """
     Run the full research pipeline for a given topic.
     Returns the final ResearchState with papers, extractions,
@@ -49,7 +54,10 @@ def run_research_pipeline(topic: str) -> ResearchState:
     graph = build_research_graph()
 
     initial_state = ResearchState(topic=topic)
-    final_state = graph.invoke(initial_state)
+    config = {}
+    if callbacks:
+        config["callbacks"] = callbacks
+    final_state = graph.invoke(initial_state, config)
 
     logger.info(
         f"Pipeline complete — "
